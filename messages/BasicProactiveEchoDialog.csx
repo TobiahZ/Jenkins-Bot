@@ -9,6 +9,7 @@ using Microsoft.Bot.Connector;
 using Microsoft.WindowsAzure.Storage; 
 using Microsoft.WindowsAzure.Storage.Queue; 
 using Newtonsoft.Json;
+using System.Net.Http;
 
 // For more information about this template visit http://aka.ms/azurebots-csharp-proactive
 [Serializable]
@@ -83,6 +84,85 @@ public class BasicProactiveEchoDialog : IDialog<object>
         // Create a message and add it to the queue.
         var queuemessage = new CloudQueueMessage(message);
         await queue.AddMessageAsync(queuemessage);
+    }
+
+    //Use Jenkins Remote Access API to trigger build
+    public async Task TriggerBuild(string jenkinsID,string jobID)
+    {
+        //URL format: JENKINS_URL/job/JOBNAME/build?token=TOKEN
+
+        //TEMP
+        //string jenkinsURL = GetJenkinsURL(jenkinsID);
+        string jenkinsURL = "http://verizonjtest.westus.cloudapp.azure.com:8080";
+        //TEMP
+
+        using (var client = new HttpClient())
+        {
+            var values = new Dictionary<string, string>
+            {
+            { "token", "TOKEN" }
+            };
+
+            var content = new FormUrlEncodedContent(values);
+
+            var response = await client.PostAsync(jenkinsURL+"/job/"+jobID+"/build", content);
+
+            var responseString = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private class JenkinsJob
+    {
+        public string _class { get; set; }
+        public string name  { get; set; }
+        public string url { get; set; }
+        public string color  { get; set; }
+    }
+    private class JenkinsJobList
+    {
+        public List<JenkinsJob> jobs { get; set; };
+    }
+
+    private JenkinsJobList GetJenkinsJobList()
+    {
+        WebClient client = new WebClient();
+
+        //TEMP
+        //string jenkinsURL = GetJenkinsURL(jenkinsID);
+        string jenkinsURL = "http://verizonjtest.westus.cloudapp.azure.com:8080";
+        //TEMP
+
+        // Download string.
+        string json = client.DownloadString(jenkinsURL+"/api/json?tree=jobs[name]");
+        
+        JenkinsJobList jenkinsJobs = JsonConvert.DeserializeObject<JenkinsJobList>(json)
+    }
+
+    //Use Jenkins Remote Access API to get all the jobs available
+    public List<string> GetJobs(string jenkinsID)
+    {
+        JenkinsJobList jenkinsJobs = GetJenkinsJobList();
+        List<sting> jobNames = new List<sting>();
+        foreach(JenkinsJob item in jenkinsJobs.jobs)
+        {
+            jobNames.add(item.name);
+        }
+        return jobNames;
+    }
+
+    //Use Jenkins Remote Access API to get the status of the jobiD
+    public string GetJobStatus(string jenkinsID,string jobID)
+    {
+        JenkinsJobList jenkinsJobs = GetJenkinsJobList();
+        List<sting> jobNames = new List<sting>();
+        foreach(JenkinsJob item in jenkinsJobs.jobs)
+        {
+            if (item.name == jobID)
+            {
+                return item.color;
+            }
+        }
+        return "ERROR - No Job \""+jobID"\" found";
     }
 }
 
